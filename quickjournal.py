@@ -54,8 +54,6 @@ def main(screen):
 
     curses.start_color()
     curses.use_default_colors()
-    for i in range(0, curses.COLORS):
-        curses.init_pair(i + 1, i, -1)
 
     while not done:
         screen.refresh()
@@ -71,7 +69,7 @@ def main(screen):
             screen.addstr(1 + i, 1, txt)
 
         current_line_length = len(txt_entry.split('\n')[-1])
-        screen.addch(1 + vert_offset, current_line_length + 1, '_')
+        screen.addch(1 + vert_offset, current_line_length + 1, '\u258e')
 
         # text limit
         txt_limit = f'{len(txt_entry)}/{MAX_CHARS}'
