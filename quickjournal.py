@@ -29,19 +29,22 @@ ASCII_MAX = 127
 # parameters
 MAX_CHARS = 140
 PADDING = 1
-TITLE = '😋 QuickJournal'
+TITLE = 'QuickJournal'
+# TITLE = '😋 QuickJournal'
 CURSOR = '\u258e'
 BREAK_SEPS = ' '
 EMOJIS = 'emoji.csv'
+MOODS = ['😣', '🙁', '😐', '🙂', '😁']
+MOOD_BRACKET = '[ ' + '   ' * 5 + ']'
 
-def writeEntry(txt):
+def writeEntry(txt, mood):
     home = str(Path.home())
     homepath = os.path.join(home, 'Documents', 'Journal')
     date = datetime.datetime.now().strftime("%Y-%m-%d")
     time = datetime.datetime.now().strftime("%H:%M:%S")
 
     with open(os.path.join(homepath, f'{date}.md'), 'a') as f:
-        f.write(f'\n> `{time}`\n')
+        f.write(f'\n> `{time}` -- feeling {MOODS[mood]}\n')
         f.write(f'>\n')
         f.write(f'> {txt}')
         f.write(f'\n\n&nbsp;\n')
@@ -111,18 +114,30 @@ def transformText(txt, screen_width):
 
 def drawText(screen, split_txt):
     """Handles rendering of the main text, including line and word breaks"""
-
-    need_refresh = False
-
     for i, line in enumerate(split_txt):
         screen.addstr(1 + PADDING + i, 1 + PADDING, line)
 
-    return need_refresh
+def drawMoodBar(screen, current_mood: int):
+    assert(current_mood in range(len(MOODS)))
+
+    _, width = screen.getmaxyx()
+    screen.addstr(0, width - len(MOOD_BRACKET) - 1, MOOD_BRACKET, curses.A_BOLD)
+
+    for i,mood in enumerate(MOODS):
+        x = width - len(MOOD_BRACKET) + (3 * i) + 1
+        if i == current_mood:
+            screen.addch(0, x, mood)
+        else:
+            screen.addstr(0, x, '·')
+
 
 def main(screen):
 
     # Text entry
     txt_entry = ''
+
+    # Mood
+    current_mood = len(MOODS) // 2
 
     # Program state
     done = False
@@ -152,6 +167,9 @@ def main(screen):
 
         # Draw title over borders
         screen.addstr(0, 1, f'[{TITLE}]', curses.A_BOLD)
+
+        # Mood bar
+        drawMoodBar(screen, current_mood)
 
         # Draw entry text
         # Optimization to refresh screen only when a line break changes
@@ -237,15 +255,32 @@ def main(screen):
             
             need_refresh = True
 
+        elif key == LEFT:
+            if current_mood == 0:
+                current_mood = len(MOODS) - 1
+            else:
+                current_mood -= 1
+
+            need_refresh = True
+        
+        elif key == RIGHT:
+            if current_mood == len(MOODS) - 1:
+                current_mood = 0
+            else:
+                current_mood += 1
+
+            need_refresh = True
+
         elif key == curses.KEY_RESIZE:
             height, width = screen.getmaxyx()
             need_refresh = True
 
         elif key == SEND:
             if txt_entry:
-                writeEntry(txt_entry)
+                writeEntry(txt_entry, current_mood)
                 txt_entry = ''
                 need_refresh = True
+                done = True
 
         if need_refresh:
             screen.clear()
