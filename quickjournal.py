@@ -143,7 +143,7 @@ def main(screen):
         rectangle(screen, 0, 0, rect_height, width - 1)
 
         # Draw title over borders
-        screen.addstr(0, 1, f'[{TITLE}]')
+        screen.addstr(0, 1, f'[{TITLE}]', curses.A_BOLD)
 
         # Draw entry text
         # Optimization to refresh screen only when a line break changes
