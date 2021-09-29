@@ -6,6 +6,9 @@ def suggest(dictionary, txt, num_results=10):
     complete suggestions
     """
 
+    if not txt:
+        return []
+
     primaries = []
     secondaries = []
 
