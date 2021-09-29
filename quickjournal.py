@@ -156,8 +156,12 @@ def main(screen):
         drawText(screen, txt_transformed)
 
         # text limit
-        txt_limit = f'[{len(txt_entry)}/{MAX_CHARS}]'
-        screen.addstr(rect_height, 1, txt_limit)
+        chars = len(txt_entry)
+        txt_limit = f'[{chars}/{MAX_CHARS}]'
+        if chars < MAX_CHARS:
+            screen.addstr(rect_height, 1, txt_limit)
+        else:
+            screen.addstr(rect_height, 1, txt_limit, curses.A_REVERSE)
 
         # Handle keyboard stuff
         key = screen.getch()
@@ -167,15 +171,14 @@ def main(screen):
 
         elif key in range(ASCII_MIN, ASCII_MAX):
             # Add ASCII character to the text entry
-            txt_entry += chr(key)
-            
-            # Refresh screen
-            # screen.clear()
+            if chars < MAX_CHARS:
+                txt_entry += chr(key)
         
         elif key == RETURN:
             # new line
-            txt_entry += '\n'
-            need_refresh = True
+            if chars < MAX_CHARS:
+                txt_entry += '\n'
+                need_refresh = True
         
         elif key == BACKSPACE:
             # Remove character from text entry
