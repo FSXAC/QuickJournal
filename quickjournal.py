@@ -66,32 +66,28 @@ def findBreakIndex(txt, max_width):
     return [index] + findBreakIndex(remaining_txt, max_width)
 
 
-def drawText(screen, screen_width, txt):
-    """Handles rendering of the main text, including line and word breaks"""
-
-    need_refresh = False
-
+def transformText(txt, screen_width):
     # How many characters can we fit inside a line (-1 for border, -1 for cursor)
     max_line_width = screen_width - (2 * PADDING) - 3
 
     lines = txt.split('\n')
-    break_offset = 0
-
-    # Cursor position
-    cursor_x = 0
+    new_lines = []
 
     for line in lines:
+        
+        # If new line (empty)
+        if not line:
+            new_lines.append(line)
+            continue
 
         # Not suppose to be here, shoudl be per line txt
         breaks = findBreakIndex(line, max_line_width)
 
         if breaks:
             # Display the first line
-            segment = line[:breaks[0]]
-            screen.addstr(1 + PADDING + break_offset, 1 + PADDING, segment)
+            new_lines.append(line[:breaks[0]])
 
             for i in range(len(breaks)):
-                break_offset += 1
                 line = line[breaks[i] + 1:]
 
                 if (i == len(breaks) - 1):
@@ -99,16 +95,23 @@ def drawText(screen, screen_width, txt):
                 else:
                     segment = line[:breaks[i + 1]]
                 
-                screen.addstr(1 + PADDING + break_offset, 1 + PADDING, segment)
-                cursor_x = len(segment)
+                new_lines.append(segment)
         else:
-            screen.addstr(1 + PADDING + break_offset, 1 + PADDING, line)
-            cursor_x = len(line)
+            new_lines.append(line)
 
-        break_offset += 1
-    
-    screen.addch( PADDING + break_offset, cursor_x + 2, '\u258e')
-    
+    # Add cursor at the back
+    new_lines[-1] += CURSOR
+
+    return new_lines
+
+def drawText(screen, split_txt):
+    """Handles rendering of the main text, including line and word breaks"""
+
+    need_refresh = False
+
+    for i, line in enumerate(split_txt):
+        screen.addstr(1 + PADDING + i, 1 + PADDING, line)
+
     return need_refresh
 
 def main(screen):
@@ -124,6 +127,9 @@ def main(screen):
     curses.curs_set(0)
     height, width = screen.getmaxyx()
 
+    prev_transform_txt_height = 0
+    transform_txt_height = 0
+
     curses.start_color()
     curses.use_default_colors()
 
@@ -132,7 +138,7 @@ def main(screen):
         need_refresh = False
 
         # Draw borders
-        vert_offset = txt_entry.count('\n')
+        vert_offset = len(transformText(txt_entry, width))
         rect_height = (MAX_CHARS // (width - 2 * PADDING - 2)) + 2 * PADDING + vert_offset
         rectangle(screen, 0, 0, rect_height, width - 1)
 
@@ -140,10 +146,14 @@ def main(screen):
         screen.addstr(0, 1, f'[{TITLE}]')
 
         # Draw entry text
-        need_refresh |= drawText(screen, width, txt_entry)
+        # Optimization to refresh screen only when a line break changes
+        txt_transformed = transformText(txt_entry, width)
+        prev_transform_txt_height = transform_txt_height
+        transform_txt_height = len(txt_transformed)
+        need_refresh = transform_txt_height != prev_transform_txt_height
 
-        # current_line_length = len(txt_entry.split('\n')[-1])
-        # screen.addch(1 + vert_offset, current_line_length + 1, '\u258e')
+        # Actually draw out the text
+        drawText(screen, txt_transformed)
 
         # text limit
         txt_limit = f'[{len(txt_entry)}/{MAX_CHARS}]'
@@ -164,7 +174,7 @@ def main(screen):
         
         elif key == RETURN:
             # new line
-            txt_entry += '\n\n'
+            txt_entry += '\n'
             need_refresh = True
         
         elif key == BACKSPACE:
