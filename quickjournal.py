@@ -1,12 +1,11 @@
 
+import argparse
 import curses
-from curses import textpad
 from curses.textpad import rectangle
 import datetime
 import os
 from pathlib import Path
-import sys
-from typing import NewType
+import random
 
 import emojis
 import autocomplete
@@ -41,7 +40,17 @@ EMOJIS = os.path.join(HOME, 'Developer/QuickJournal/emoji.csv')
 MOODS = ['😣', '🙁', '😐', '🙂', '😁']
 MOOD_BRACKET = '[ ' + '   ' * 5 + ']'
 
+# Argument parsing
+parser = argparse.ArgumentParser(description='QuickJournal -- rapid and micro journaling.')
+parser.add_argument('--live-emojis', help='Enable live-emojis preview', action='store_true')
+parser.add_argument('--private', help='Scramble the live text for privacy', action='store_true')
 
+global args
+args = parser.parse_args()
+
+# Randomization
+SCRAMBLE_LETTERS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+SCRAMBLE_EXCLUDE = [CURSOR, *' ,.!?-\'"']
 
 def writeEntry(txt, mood):
     
@@ -110,7 +119,7 @@ def transformEmojiText(txt, emoji_dict):
 
     return new_txt
 
-def transformText(txt, screen_width, emoji_dict = None):
+def transformText(txt, screen_width, emoji_dict = None, scramble=False):
     # How many characters can we fit inside a line (-1 for border, -1 for cursor)
     max_line_width = screen_width - (2 * PADDING) - 3
 
@@ -125,7 +134,7 @@ def transformText(txt, screen_width, emoji_dict = None):
             continue
 
         # Emoji transform
-        if emoji_dict:
+        if args.live_emojis and emoji_dict:
             line = transformEmojiText(line, emoji_dict)
 
         # Not suppose to be here, shoudl be per line txt
@@ -155,7 +164,14 @@ def transformText(txt, screen_width, emoji_dict = None):
 def drawText(screen, split_txt):
     """Handles rendering of the main text, including line and word breaks"""
     for i, line in enumerate(split_txt):
-        screen.addstr(1 + PADDING + i, 1 + PADDING, line)
+        x = 1 + PADDING
+        y = 1 + PADDING + i
+
+        for c in line:
+            if args.private and c not in SCRAMBLE_EXCLUDE:
+                c = random.choice(SCRAMBLE_LETTERS)
+            screen.addch(y, x, c)
+            x += 1
 
 def drawMoodBar(screen, current_mood: int):
     assert(current_mood in range(len(MOODS)))
