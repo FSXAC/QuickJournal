@@ -191,6 +191,38 @@ def drawMoodBar(screen, current_mood: int):
             screen.addstr(0, x, '·')
 
 
+def emojiAutoComplete(txt_entry, emoji_dict, current_line):
+    current_string = current_line.split(' ')[-1]
+
+    if current_string.count(':') % 2 == 1:    # check for open :
+        last_colon_index = current_line.rfind(':')
+        last_txt = current_line[last_colon_index + 1:]
+
+        if ' ' not in last_txt:
+            return autocomplete.suggest(emoji_dict, last_txt, num_results=5)
+
+    return None
+
+def displayEmojiSuggestion(screen, emoji_suggestions, emoji_dict, current_line, vert_offset):
+    # Calculate the box size
+    max_width = 0
+    for s in emoji_suggestions:
+        if len(s) > max_width:
+            max_width = len(s)
+
+    emoji_rect_height = len(emoji_suggestions) + 1
+    emoji_rect_width = max_width + 6
+
+    # Calculate the box position below the cursor
+    # but also to fit inside the window
+    emoji_rect_x = len(current_line) - 1
+    emoji_rect_y = vert_offset + 2
+    rectangle(screen, emoji_rect_y, emoji_rect_x, emoji_rect_y + emoji_rect_height, emoji_rect_x + emoji_rect_width)
+
+    for i,x in enumerate(emoji_suggestions):
+        screen.addstr(i + emoji_rect_y + 1, emoji_rect_x + 1, f'{emoji_dict[x]} :{x}:'.ljust(max_width + 4))
+
+
 def main(screen):
 
     # Text entry
@@ -257,35 +289,10 @@ def main(screen):
 
         # Emoji autocomplete
         current_line = txt_entry.split('\n')[-1]
-        current_string = current_line.split(' ')[-1]
-        
-        if current_string.count(':') % 2 == 1:    # check for open :
-            last_colon_index = current_line.rfind(':')
-            last_txt = current_line[last_colon_index + 1:]
-
-            if ' ' not in last_txt:
-                emoji_suggestions = autocomplete.suggest(emoji_dict, last_txt, num_results=5)
-                if emoji_suggestions:
-                    need_refresh = True
-
-                    # Calculate the box size
-                    max_width = 0
-                    for s in emoji_suggestions:
-                        if len(s) > max_width:
-                            max_width = len(s)
-                    
-                    emoji_rect_height = len(emoji_suggestions) + 1
-                    emoji_rect_width = max_width + 6
-
-                    # Calculate the box position below the cursor
-                    # but also to fit inside the window
-                    emoji_rect_x = len(current_line) - 1
-                    emoji_rect_y = vert_offset + 2
-                    rectangle(screen, emoji_rect_y, emoji_rect_x, emoji_rect_y + emoji_rect_height, emoji_rect_x + emoji_rect_width)
-
-                    for i,x in enumerate(emoji_suggestions):
-                        screen.addstr(i + emoji_rect_y + 1, emoji_rect_x + 1, f'{emoji_dict[x]} :{x}:'.ljust(max_width + 4))
-
+        emoji_suggestions = emojiAutoComplete(txt_entry, emoji_dict, current_line)
+        if emoji_suggestions:
+            need_refresh = True
+            displayEmojiSuggestion(screen, emoji_suggestions, emoji_dict, current_line, vert_offset)
 
         # Handle keyboard stuff
         key = screen.getch()
