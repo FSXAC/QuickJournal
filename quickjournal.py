@@ -31,7 +31,7 @@ ASCII_MAX = 127
 HOME = str(Path.home())
 
 # parameters
-MAX_CHARS = 20
+MAX_CHARS = 140
 PADDING = 1
 TITLE = 'QuickJournal'
 # TITLE = '😋 QuickJournal'
