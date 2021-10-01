@@ -1,6 +1,7 @@
 
 import argparse
 import curses
+from curses import textpad
 from curses.textpad import rectangle
 import datetime
 import os
@@ -30,7 +31,7 @@ ASCII_MAX = 127
 HOME = str(Path.home())
 
 # parameters
-MAX_CHARS = 280
+MAX_CHARS = 20
 PADDING = 1
 TITLE = 'QuickJournal'
 # TITLE = '😋 QuickJournal'
@@ -202,6 +203,7 @@ def main(screen):
     screen = screen
     curses.curs_set(0)
     height, width = screen.getmaxyx()
+    overflow_flag = False
 
     prev_transform_txt_height = 0
     transform_txt_height = 0
@@ -240,12 +242,15 @@ def main(screen):
         drawText(screen, txt_transformed)
 
         # text limit
-        chars = len(txt_entry)
-        txt_limit = f'[{chars}/{MAX_CHARS}]'
-        if chars < MAX_CHARS:
-            screen.addstr(rect_height, 1, txt_limit)
+        remain_chars = MAX_CHARS - len(txt_entry)
+        txt_limit = f'[{remain_chars}]'
+        len_text_limit = len(txt_limit)
+        txt_limit_x = width - len_text_limit - 1
+        if remain_chars >= 0:
+            screen.addstr(rect_height, txt_limit_x, txt_limit)
         else:
-            screen.addstr(rect_height, 1, txt_limit, curses.A_REVERSE)
+            screen.addstr(rect_height, txt_limit_x, txt_limit, 
+                (curses.A_BLINK | curses.A_REVERSE) if overflow_flag else curses.A_REVERSE)
 
         # Emoji autocomplete
         current_line = txt_entry.split('\n')[-1]
@@ -287,20 +292,19 @@ def main(screen):
 
         elif key in range(ASCII_MIN, ASCII_MAX):
             # Add ASCII character to the text entry
-            if chars < MAX_CHARS:
-                txt_entry += chr(key)
+            txt_entry += chr(key)
         
         elif key == RETURN:
             # new line
-            if chars < MAX_CHARS:
-                txt_entry += '\n'
-                need_refresh = True
+            txt_entry += '\n'
+            need_refresh = True
         
         elif key == BACKSPACE:
             # Remove character from text entry
             if txt_entry:
                 txt_entry = txt_entry[:-1]
                 need_refresh = True
+                overflow_flag = False
 
         elif key == CMD_BACKSPACE:
             # Remove a whole word
@@ -331,10 +335,13 @@ def main(screen):
 
         elif key == SEND:
             if txt_entry:
-                writeEntry(txt_entry, current_mood)
-                txt_entry = ''
-                need_refresh = True
-                done = True
+                if remain_chars >= 0:
+                    writeEntry(txt_entry, current_mood)
+                    txt_entry = ''
+                    need_refresh = True
+                    done = True
+                else:
+                    overflow_flag = True
 
         if need_refresh:
             screen.clear()
