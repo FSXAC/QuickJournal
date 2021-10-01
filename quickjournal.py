@@ -6,6 +6,7 @@ import datetime
 import os
 from pathlib import Path
 import sys
+from typing import NewType
 
 import emojis
 import autocomplete
@@ -26,20 +27,25 @@ RIGHT = 261
 ASCII_MIN = 32
 ASCII_MAX = 127
 
+# Consts
+HOME = str(Path.home())
+
 # parameters
-MAX_CHARS = 140
+MAX_CHARS = 280
 PADDING = 1
 TITLE = 'QuickJournal'
 # TITLE = '😋 QuickJournal'
 CURSOR = '\u258e'
 BREAK_SEPS = ' '
-EMOJIS = 'emoji.csv'
+EMOJIS = os.path.join(HOME, 'Developer/QuickJournal/emoji.csv')
 MOODS = ['😣', '🙁', '😐', '🙂', '😁']
 MOOD_BRACKET = '[ ' + '   ' * 5 + ']'
 
+
+
 def writeEntry(txt, mood):
-    home = str(Path.home())
-    homepath = os.path.join(home, 'Documents', 'Journal')
+    
+    homepath = os.path.join(HOME, 'Documents', 'Journal')
     date = datetime.datetime.now().strftime("%Y-%m-%d")
     time = datetime.datetime.now().strftime("%H:%M:%S")
 
@@ -74,7 +80,37 @@ def findBreakIndex(txt, max_width):
     return [index] + findBreakIndex(remaining_txt, max_width)
 
 
-def transformText(txt, screen_width):
+def transformEmojiText(txt, emoji_dict):
+    """very broken right now"""
+    if ':' not in txt:
+        return txt
+
+    colon_indices = [i for i, x in enumerate(txt) if x == ':']
+
+    in_shortcode = False
+    start = 0
+    new_txt = ''
+    for i, ci in enumerate(colon_indices):
+        end = ci
+
+        if in_shortcode:
+            shortcode = txt[start + 1:end]
+            try:
+                new_txt += emoji_dict[shortcode]
+                end += 1
+            except KeyError:
+                new_txt += txt[start:end]
+        else:
+            new_txt += txt[start:end]
+
+        in_shortcode = not in_shortcode
+        start = ci
+
+    new_txt += txt[end:]
+
+    return new_txt
+
+def transformText(txt, screen_width, emoji_dict = None):
     # How many characters can we fit inside a line (-1 for border, -1 for cursor)
     max_line_width = screen_width - (2 * PADDING) - 3
 
@@ -87,6 +123,10 @@ def transformText(txt, screen_width):
         if not line:
             new_lines.append(line)
             continue
+
+        # Emoji transform
+        if emoji_dict:
+            line = transformEmojiText(line, emoji_dict)
 
         # Not suppose to be here, shoudl be per line txt
         breaks = findBreakIndex(line, max_line_width)
@@ -160,8 +200,11 @@ def main(screen):
         screen.refresh()
         need_refresh = False
 
+        # Text processing
+        txt_transformed = transformText(txt_entry, width, emoji_dict=emoji_dict)
+
         # Draw borders
-        vert_offset = len(transformText(txt_entry, width))
+        vert_offset = len(txt_transformed)
         rect_height = (MAX_CHARS // (width - 2 * PADDING - 2)) + 2 * PADDING + vert_offset
         rectangle(screen, 0, 0, rect_height, width - 1)
 
@@ -173,7 +216,6 @@ def main(screen):
 
         # Draw entry text
         # Optimization to refresh screen only when a line break changes
-        txt_transformed = transformText(txt_entry, width)
         prev_transform_txt_height = transform_txt_height
         transform_txt_height = len(txt_transformed)
         need_refresh = transform_txt_height != prev_transform_txt_height
@@ -261,15 +303,11 @@ def main(screen):
             else:
                 current_mood -= 1
 
-            need_refresh = True
-        
         elif key == RIGHT:
             if current_mood == len(MOODS) - 1:
                 current_mood = 0
             else:
                 current_mood += 1
-
-            need_refresh = True
 
         elif key == curses.KEY_RESIZE:
             height, width = screen.getmaxyx()
