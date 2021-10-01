@@ -44,10 +44,12 @@ MOOD_BRACKET = '[ ' + '   ' * 5 + ']'
 # Argument parsing
 parser = argparse.ArgumentParser(description='QuickJournal -- rapid and micro journaling.')
 parser.add_argument('--live-emojis', help='Enable live-emojis preview', action='store_true')
+parser.add_argument('--max-chars', default=140, type=int, help='Maximum number of characters to input')
 parser.add_argument('--private', help='Scramble the live text for privacy', action='store_true')
 
 global args
 args = parser.parse_args()
+MAX_CHARS = args.max_chars
 
 # Randomization
 SCRAMBLE_LETTERS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
@@ -59,10 +61,11 @@ def writeEntry(txt, mood):
     date = datetime.datetime.now().strftime("%Y-%m-%d")
     time = datetime.datetime.now().strftime("%H:%M:%S")
 
-    with open(os.path.join(homepath, f'{date}.md'), 'a') as f:
+    with open(os.path.join(homepath, f'{date}-qj.md'), 'a') as f:
         f.write(f'\n> `{time}` -- feeling {MOODS[mood]}\n')
         f.write(f'>\n')
-        f.write(f'> {txt}')
+        for t in txt.split('\n'):
+            f.write(f'> {t}\n')
         f.write(f'\n\n&nbsp;\n')
 
 def findBreakIndex(txt, max_width):
