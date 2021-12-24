@@ -44,7 +44,7 @@ MOOD_BRACKET = '[ ' + '   ' * 5 + ']'
 # Argument parsing
 parser = argparse.ArgumentParser(description='QuickJournal -- rapid and micro journaling.')
 parser.add_argument('--live-emojis', help='Enable live-emojis preview', action='store_true')
-parser.add_argument('--max-chars', default=140, type=int, help='Maximum number of characters to input')
+parser.add_argument('--max-chars', default=400, type=int, help='Maximum number of characters to input')
 parser.add_argument('--private', help='Scramble the live text for privacy', action='store_true')
 
 global args
