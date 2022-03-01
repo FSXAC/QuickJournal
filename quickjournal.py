@@ -11,6 +11,8 @@ import random
 import emojis
 import autocomplete
 
+from dayone import *
+
 # keys
 SEND = 7
 TAB = 9
@@ -41,11 +43,14 @@ EMOJIS = os.path.join(HOME, 'Developer/QuickJournal/emoji.csv')
 MOODS = ['😣', '🙁', '😐', '🙂', '😁']
 MOOD_BRACKET = '[ ' + '   ' * 5 + ']'
 
+
+
 # Argument parsing
-parser = argparse.ArgumentParser(description='QuickJournal -- rapid and micro journaling.')
+parser = argparse.ArgumentParser(description='QuickJournal -- rapid and micro journaling. Automatically saves to Day One app')
 parser.add_argument('--live-emojis', help='Enable live-emojis preview', action='store_true')
-parser.add_argument('--max-chars', default=400, type=int, help='Maximum number of characters to input')
-parser.add_argument('--private', help='Scramble the live text for privacy', action='store_true')
+parser.add_argument('-M', '--max-chars', default=400, type=int, help='Maximum number of characters to input')
+parser.add_argument('-p', '--private', help='Scramble the live text for privacy', action='store_true')
+parser.add_argument('--save-local', action='store_true', help='Save locally to drive instead of to Day One app')
 
 global args
 args = parser.parse_args()
@@ -55,18 +60,30 @@ MAX_CHARS = args.max_chars
 SCRAMBLE_LETTERS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 SCRAMBLE_EXCLUDE = [CURSOR, *' ,.!?-\'"']
 
-def writeEntry(txt, mood):
-    
-    homepath = os.path.join(HOME, 'Documents', 'Journal')
-    date = datetime.datetime.now().strftime("%Y-%m-%d")
-    time = datetime.datetime.now().strftime("%H:%M:%S")
+# Journal data
+global entry_data
+entry_data = None
 
-    with open(os.path.join(homepath, f'{date}-qj.md'), 'a') as f:
-        f.write(f'\n> `{time}` -- feeling {MOODS[mood]}\n')
-        f.write(f'>\n')
-        for t in txt.split('\n'):
-            f.write(f'> {t}\n')
-        f.write(f'\n\n&nbsp;\n')
+def writeEntry(txt, mood):
+
+    if args.save_local:
+    
+        homepath = os.path.join(HOME, 'Documents', 'Journal')
+        date = datetime.datetime.now().strftime("%Y-%m-%d")
+        time = datetime.datetime.now().strftime("%H:%M:%S")
+
+        with open(os.path.join(homepath, f'{date}-qj.md'), 'a') as f:
+            f.write(f'\n> `{time}` -- feeling {MOODS[mood]}\n')
+            f.write(f'>\n')
+            for t in txt.split('\n'):
+                f.write(f'> {t}\n')
+            f.write(f'\n\n&nbsp;\n')
+    else:
+        tags = ['quickjournal']
+        if args.private:
+            tags.append('private')
+
+        saveToDayOne('\n>\n> '.join(txt.split('\n')), MOODS[mood], tags)
 
 def findBreakIndex(txt, max_width):
     """
@@ -249,113 +266,119 @@ def main(screen):
     # emojis list
     emoji_dict = emojis.read_emojis_list(EMOJIS)
 
-    while not done:
-        screen.refresh()
-        need_refresh = False
+    try:
+        while not done:
+            screen.refresh()
+            need_refresh = False
 
-        # Text processing
-        txt_transformed = transformText(txt_entry, width, emoji_dict=emoji_dict)
+            # Text processing
+            txt_transformed = transformText(txt_entry, width, emoji_dict=emoji_dict)
 
-        # Draw borders
-        vert_offset = len(txt_transformed)
-        rect_height = (MAX_CHARS // (width - 2 * PADDING - 2)) + 2 * PADDING + vert_offset
-        rectangle(screen, 0, 0, rect_height, width - 1)
+            # Draw borders
+            vert_offset = len(txt_transformed)
+            rect_height = (MAX_CHARS // (width - 2 * PADDING - 2)) + 2 * PADDING + vert_offset
+            rectangle(screen, 0, 0, rect_height, width - 1)
 
-        # Draw title over borders
-        screen.addstr(0, 1, f'[{TITLE}]', curses.A_BOLD)
+            # Draw hint
+            hint = 'Press ^G to Submit'
+            screen.addstr(rect_height + 1, int((width / 2) - len(hint) / 2), hint)
 
-        # Mood bar
-        drawMoodBar(screen, current_mood)
+            # Draw title over borders
+            screen.addstr(0, 1, f'[{TITLE}]', curses.A_BOLD)
 
-        # Draw entry text
-        # Optimization to refresh screen only when a line break changes
-        prev_transform_txt_height = transform_txt_height
-        transform_txt_height = len(txt_transformed)
-        need_refresh = transform_txt_height != prev_transform_txt_height
+            # Mood bar
+            drawMoodBar(screen, current_mood)
 
-        # Actually draw out the text
-        drawText(screen, txt_transformed)
+            # Draw entry text
+            # Optimization to refresh screen only when a line break changes
+            prev_transform_txt_height = transform_txt_height
+            transform_txt_height = len(txt_transformed)
+            need_refresh = transform_txt_height != prev_transform_txt_height
 
-        # text limit
-        remain_chars = MAX_CHARS - len(txt_entry)
-        txt_limit = f'[{remain_chars}]'
-        len_text_limit = len(txt_limit)
-        txt_limit_x = width - len_text_limit - 1
-        if remain_chars >= 0:
-            screen.addstr(rect_height, txt_limit_x, txt_limit)
-        else:
-            screen.addstr(rect_height, txt_limit_x, txt_limit, 
-                (curses.A_BLINK | curses.A_REVERSE) if overflow_flag else curses.A_REVERSE)
+            # Actually draw out the text
+            drawText(screen, txt_transformed)
 
-        # Emoji autocomplete
-        current_line = txt_entry.split('\n')[-1]
-        emoji_suggestions = emojiAutoComplete(txt_entry, emoji_dict, current_line)
-        if emoji_suggestions:
-            need_refresh = True
-            displayEmojiSuggestion(screen, emoji_suggestions, emoji_dict, current_line, vert_offset)
+            # text limit
+            remain_chars = MAX_CHARS - len(txt_entry)
+            txt_limit = f'[{remain_chars}]'
+            len_text_limit = len(txt_limit)
+            txt_limit_x = width - len_text_limit - 1
+            if remain_chars >= 0:
+                screen.addstr(rect_height, txt_limit_x, txt_limit)
+            else:
+                screen.addstr(rect_height, txt_limit_x, txt_limit, 
+                    (curses.A_BLINK | curses.A_REVERSE) if overflow_flag else curses.A_REVERSE)
 
-        # Handle keyboard stuff
-        key = screen.getch()
-
-        if key == ESCAPE:
-            done = True
-
-        elif key in range(ASCII_MIN, ASCII_MAX):
-            # Add ASCII character to the text entry
-            txt_entry += chr(key)
-        
-        elif key == RETURN:
-            # new line
-            txt_entry += '\n'
-            need_refresh = True
-        
-        elif key == BACKSPACE:
-            # Remove character from text entry
-            if txt_entry:
-                txt_entry = txt_entry[:-1]
+            # Emoji autocomplete
+            current_line = txt_entry.split('\n')[-1]
+            emoji_suggestions = emojiAutoComplete(txt_entry, emoji_dict, current_line)
+            if emoji_suggestions:
                 need_refresh = True
-                overflow_flag = False
+                displayEmojiSuggestion(screen, emoji_suggestions, emoji_dict, current_line, vert_offset)
 
-        elif key == CMD_BACKSPACE:
-            # Remove a whole word
-            space_index = max(txt_entry.rfind(' '), txt_entry.rfind('\n'))
+            # Handle keyboard stuff
+            key = screen.getch()
 
-            if space_index == -1:
-                txt_entry = ''
-            else:
-                txt_entry = txt_entry[:space_index]
+            if key == ESCAPE:
+                done = True
+
+            elif key in range(ASCII_MIN, ASCII_MAX):
+                # Add ASCII character to the text entry
+                txt_entry += chr(key)
             
-            need_refresh = True
-
-        elif key == LEFT:
-            if current_mood == 0:
-                current_mood = len(MOODS) - 1
-            else:
-                current_mood -= 1
-
-        elif key == RIGHT:
-            if current_mood == len(MOODS) - 1:
-                current_mood = 0
-            else:
-                current_mood += 1
-
-        elif key == curses.KEY_RESIZE:
-            height, width = screen.getmaxyx()
-            need_refresh = True
-
-        elif key == SEND:
-            if txt_entry:
-                if remain_chars >= 0:
-                    writeEntry(txt_entry, current_mood)
-                    txt_entry = ''
+            elif key == RETURN:
+                # new line
+                txt_entry += '\n'
+                need_refresh = True
+            
+            elif key == BACKSPACE:
+                # Remove character from text entry
+                if txt_entry:
+                    txt_entry = txt_entry[:-1]
                     need_refresh = True
-                    done = True
-                else:
-                    overflow_flag = True
+                    overflow_flag = False
 
-        if need_refresh:
-            screen.clear()
-    
+            elif key == CMD_BACKSPACE:
+                # Remove a whole word
+                space_index = max(txt_entry.rfind(' '), txt_entry.rfind('\n'))
+
+                if space_index == -1:
+                    txt_entry = ''
+                else:
+                    txt_entry = txt_entry[:space_index]
+                
+                need_refresh = True
+
+            elif key == LEFT:
+                if current_mood == 0:
+                    current_mood = len(MOODS) - 1
+                else:
+                    current_mood -= 1
+
+            elif key == RIGHT:
+                if current_mood == len(MOODS) - 1:
+                    current_mood = 0
+                else:
+                    current_mood += 1
+
+            elif key == curses.KEY_RESIZE:
+                height, width = screen.getmaxyx()
+                need_refresh = True
+
+            elif key == SEND:
+                if txt_entry:
+                    if remain_chars >= 0:
+                        writeEntry(txt_entry, current_mood)
+                        txt_entry = ''
+                        need_refresh = True
+                        done = True
+                    else:
+                        overflow_flag = True
+
+            if need_refresh:
+                screen.clear()
+    except KeyboardInterrupt:
+        exit()
 
 if __name__ == '__main__':
     curses.wrapper(main)
