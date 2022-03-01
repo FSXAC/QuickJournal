@@ -1,11 +1,7 @@
 # Day One app integration
-import os
-from sqlite3 import connect
-import subprocess
-from sys import stdout
-from tabnanny import verbose
 
 import datetime
+import subprocess
 
 DAY_ONE_CMD = 'dayone2'
 
