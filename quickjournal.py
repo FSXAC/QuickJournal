@@ -33,7 +33,6 @@ ASCII_MAX = 127
 HOME = str(Path.home())
 
 # parameters
-MAX_CHARS = 140
 PADDING = 1
 TITLE = 'QuickJournal'
 # TITLE = '😋 QuickJournal'
@@ -43,12 +42,13 @@ EMOJIS = os.path.join(HOME, 'Developer/QuickJournal/emoji.csv')
 MOODS = ['😣', '🙁', '😐', '🙂', '😁']
 MOOD_BRACKET = '[ ' + '   ' * 5 + ']'
 
-
+PRIVATE_ON = '🙈'
+PRIVATE_OFF = '🙉'
 
 # Argument parsing
 parser = argparse.ArgumentParser(description='QuickJournal -- rapid and micro journaling. Automatically saves to Day One app')
 parser.add_argument('--live-emojis', help='Enable live-emojis preview', action='store_true')
-parser.add_argument('-M', '--max-chars', default=400, type=int, help='Maximum number of characters to input')
+parser.add_argument('-M', '--max-chars', default=280, type=int, help='Maximum number of characters to input')
 parser.add_argument('-p', '--private', help='Scramble the live text for privacy', action='store_true')
 parser.add_argument('--save-local', action='store_true', help='Save locally to drive instead of to Day One app')
 
@@ -280,11 +280,15 @@ def main(screen):
             rectangle(screen, 0, 0, rect_height, width - 1)
 
             # Draw hint
-            hint = 'Press ^G to Submit'
+            hint = 'Press ⌃G to Submit'
+            # hint += u'\u21E7'
             screen.addstr(rect_height + 1, int((width / 2) - len(hint) / 2), hint)
 
             # Draw title over borders
             screen.addstr(0, 1, f'[{TITLE}]', curses.A_BOLD)
+
+            # Draw private setting
+            screen.addstr(rect_height, 1, f'[{ PRIVATE_ON if args.private else PRIVATE_OFF }]', curses.A_BOLD)
 
             # Mood bar
             drawMoodBar(screen, current_mood)
@@ -304,10 +308,10 @@ def main(screen):
             len_text_limit = len(txt_limit)
             txt_limit_x = width - len_text_limit - 1
             if remain_chars >= 0:
-                screen.addstr(rect_height, txt_limit_x, txt_limit)
+                screen.addstr(rect_height, txt_limit_x, txt_limit, curses.A_BOLD)
             else:
                 screen.addstr(rect_height, txt_limit_x, txt_limit, 
-                    (curses.A_BLINK | curses.A_REVERSE) if overflow_flag else curses.A_REVERSE)
+                    (curses.A_BLINK | curses.A_REVERSE | curses.A_BOLD) if overflow_flag else curses.A_REVERSE | curses.A_BOLD)
 
             # Emoji autocomplete
             current_line = txt_entry.split('\n')[-1]
@@ -325,6 +329,10 @@ def main(screen):
             elif key in range(ASCII_MIN, ASCII_MAX):
                 # Add ASCII character to the text entry
                 txt_entry += chr(key)
+
+            elif key == TAB:
+                # Toggle privacy
+                args.private = not args.private
             
             elif key == RETURN:
                 # new line
