@@ -11,14 +11,21 @@ import random
 import emojis
 import autocomplete
 
-from dayone import *
+DAYONE_ENABLED = False
+try:
+    from dayone import *
+    DAYONE_ENABLED = True
+except ImportError:
+    pass
 
 # keys
 SEND = 7
 TAB = 9
 CMD_BACKSPACE = 21
+CTRL_BACKSPACE = 23
 ESCAPE = 27
 BACKSPACE = 127
+BACKSPACE_ALT = 263
 RETURN = 10
 
 DOWN = 258
@@ -38,7 +45,7 @@ TITLE = 'QuickJournal'
 # TITLE = '😋 QuickJournal'
 CURSOR = '\u258e'
 BREAK_SEPS = ' '
-EMOJIS = os.path.join(HOME, 'Developer/QuickJournal/emoji.csv')
+EMOJIS = Path('emoji.csv')
 MOODS = ['😣', '🙁', '😐', '🙂', '😁']
 MOOD_BRACKET = '[ ' + '   ' * 5 + ']'
 
@@ -46,11 +53,12 @@ PRIVATE_ON = '🙈'
 PRIVATE_OFF = '🙉'
 
 # Argument parsing
-parser = argparse.ArgumentParser(description='QuickJournal -- rapid and micro journaling. Automatically saves to Day One app')
+parser = argparse.ArgumentParser(description='QuickJournal -- rapid and micro journaling. Automatically saves to Day One app (optional)')
 parser.add_argument('--live-emojis', help='Enable live-emojis preview', action='store_true')
 parser.add_argument('-M', '--max-chars', default=280, type=int, help='Maximum number of characters to input')
 parser.add_argument('-p', '--private', help='Scramble the live text for privacy', action='store_true')
 parser.add_argument('--save-local', action='store_true', help='Save locally to drive instead of to Day One app')
+parser.add_argument('--save-dir', help='Directory to save the journal to', default=Path('.'))
 
 global args
 args = parser.parse_args()
@@ -66,13 +74,17 @@ entry_data = None
 
 def writeEntry(txt, mood):
 
-    if args.save_local:
+    if args.save_local or not DAYONE_ENABLED:
+
+        save_dir: Path
+        save_dir = args.save_dir
+        if not save_dir.exists():
+            save_dir.mkdir(parents=True, exist_ok=True)
     
-        homepath = os.path.join(HOME, 'Documents', 'Journal')
         date = datetime.datetime.now().strftime("%Y-%m-%d")
         time = datetime.datetime.now().strftime("%H:%M:%S")
 
-        with open(os.path.join(homepath, f'{date}-qj.md'), 'a') as f:
+        with open(save_dir / f'{date}-qj.md', 'a') as f:
             f.write(f'\n> `{time}` -- feeling {MOODS[mood]}\n')
             f.write(f'>\n')
             for t in txt.split('\n'):
@@ -280,7 +292,7 @@ def main(screen):
             rectangle(screen, 0, 0, rect_height, width - 1)
 
             # Draw hint
-            hint = 'Press ⌃G to Submit'
+            hint = '[⌃G Submit] [^C Quit w/o Saving]'
             # hint += u'\u21E7'
             screen.addstr(rect_height + 1, int((width / 2) - len(hint) / 2), hint)
 
@@ -322,6 +334,7 @@ def main(screen):
 
             # Handle keyboard stuff
             key = screen.getch()
+            # print(key)
 
             if key == ESCAPE:
                 done = True
@@ -339,14 +352,14 @@ def main(screen):
                 txt_entry += '\n'
                 need_refresh = True
             
-            elif key == BACKSPACE:
+            elif key == BACKSPACE or key == BACKSPACE_ALT:
                 # Remove character from text entry
                 if txt_entry:
                     txt_entry = txt_entry[:-1]
                     need_refresh = True
                     overflow_flag = False
 
-            elif key == CMD_BACKSPACE:
+            elif key == CMD_BACKSPACE or key == CTRL_BACKSPACE:
                 # Remove a whole word
                 space_index = max(txt_entry.rfind(' '), txt_entry.rfind('\n'))
 
