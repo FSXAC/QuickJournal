@@ -2,10 +2,11 @@
 
 import datetime
 import subprocess
+from typing import List
 
 DAY_ONE_CMD = 'dayone2'
 
-def saveToDayOne(content: str, mood: str, tags: list[str]) -> str:
+def saveToDayOne(content: str, mood: str, tags: List[str]) -> str:
     """
     This function constructs and returns a command to be called
     """

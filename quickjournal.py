@@ -11,12 +11,7 @@ import random
 import emojis
 import autocomplete
 
-DAYONE_ENABLED = False
-try:
-    from dayone import *
-    DAYONE_ENABLED = True
-except ImportError:
-    pass
+from dayone import *
 
 # keys
 SEND = 7
@@ -45,7 +40,7 @@ TITLE = 'QuickJournal'
 # TITLE = '😋 QuickJournal'
 CURSOR = '\u258e'
 BREAK_SEPS = ' '
-EMOJIS = Path('emoji.csv')
+EMOJIS = Path(os.path.dirname(os.path.abspath(__file__))) / 'emoji.csv'
 MOODS = ['😣', '🙁', '😐', '🙂', '😁']
 MOOD_BRACKET = '[ ' + '   ' * 5 + ']'
 
@@ -55,14 +50,21 @@ PRIVATE_OFF = '🙉'
 # Argument parsing
 parser = argparse.ArgumentParser(description='QuickJournal -- rapid and micro journaling. Automatically saves to Day One app (optional)')
 parser.add_argument('--live-emojis', help='Enable live-emojis preview', action='store_true')
+parser.add_argument('--fancy', help='Enable fancy graphics; disable this if there is visual glitches', action='store_true', default=True)
 parser.add_argument('-M', '--max-chars', default=280, type=int, help='Maximum number of characters to input')
 parser.add_argument('-p', '--private', help='Scramble the live text for privacy', action='store_true')
-parser.add_argument('--save-local', action='store_true', help='Save locally to drive instead of to Day One app')
+parser.add_argument('--save-local', action='store_true', help='Save locally to drive instead of to Day One app', default=True)
 parser.add_argument('--save-dir', help='Directory to save the journal to', default=Path('.'))
 
 global args
 args = parser.parse_args()
 MAX_CHARS = args.max_chars
+
+# non fancy
+if not args.fancy:
+    MOODS = ['1', '2', '3', '4', '5']
+    PRIVATE_ON = 'X'
+    PRIVATE_OFF = 'O'
 
 # Randomization
 SCRAMBLE_LETTERS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
@@ -74,7 +76,7 @@ entry_data = None
 
 def writeEntry(txt, mood):
 
-    if args.save_local or not DAYONE_ENABLED:
+    if args.save_local:
 
         save_dir: Path
         save_dir = args.save_dir
@@ -316,9 +318,11 @@ def main(screen):
 
             # text limit
             remain_chars = MAX_CHARS - len(txt_entry)
+            # print(remain_chars)
             txt_limit = f'[{remain_chars}]'
             len_text_limit = len(txt_limit)
             txt_limit_x = width - len_text_limit - 1
+
             if remain_chars >= 0:
                 screen.addstr(rect_height, txt_limit_x, txt_limit, curses.A_BOLD)
             else:
